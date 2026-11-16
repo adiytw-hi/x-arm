@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>xArm 1S Digital Twin — WebHID</title>
+<style>
+:root{
+  --bg:#07101d;--panel:#0d192b;--panel2:#111f35;--line:#223a5b;--text:#eef6ff;--muted:#91a6c1;
+  --cyan:#45d8ff;--blue:#3d8cff;--green:#4fd58a;--amber:#f0bf55;--red:#ef6b63;--purple:#9a7cff;
+  --shadow:0 24px 64px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:
+  radial-gradient(circle at 75% -10%,rgba(61,140,255,.16),transparent 30%),
+  linear-gradient(180deg,#07101d,#091526 60%,#07101c);color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif}
+body{padding:14px}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:disabled,input:disabled,select:disabled{cursor:not-allowed;opacity:.48}
+.app{max-width:1750px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;
+  background:rgba(9,20,36,.94);border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow);
+  position:sticky;top:8px;z-index:50;backdrop-filter:blur(12px)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brandMark{width:40px;height:40px;border-radius:11px;background:
+  linear-gradient(145deg,var(--cyan),var(--blue));position:relative;flex:none}
+.brandMark:before,.brandMark:after{content:"";position:absolute;background:#07101d;border-radius:4px}
+.brandMark:before{width:7px;height:22px;left:16px;top:9px}.brandMark:after{width:22px;height:7px;left:9px;top:16px}
+h1{font-size:19px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subtitle{font-size:11px;color:var(--muted);margin-top:3px}
+.statusLine{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border:1px solid var(--line);border-radius:999px;background:#0b1829;font-size:11px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:#75869d}.dot.green{background:var(--green)}.dot.amber{background:var(--amber)}.dot.red{background:var(--red)}
+.layout{display:grid;grid-template-columns:minmax(0,1.38fr) 430px;gap:13px;margin-top:13px}
+.card{background:linear-gradient(180deg,rgba(15,28,48,.98),rgba(10,22,39,.98));border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow);overflow:hidden}
+.cardHead{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:11px 13px;border-bottom:1px solid var(--line)}
+.cardHead strong{font-size:15px}.small{font-size:11px;color:var(--muted)}
+.stage{height:570px;background:linear-gradient(180deg,#0a1422,#0c1a2c);position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:570px}
+.hud{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:7px;flex-wrap:wrap;pointer-events:none}
+.hud .badge{background:rgba(7,15,28,.82);border-color:rgba(120,160,210,.18)}
+.legend{position:absolute;right:10px;bottom:10px;background:rgba(7,15,28,.82);border:1px solid rgba(120,160,210,.18);
+  border-radius:11px;padding:8px 9px;font-size:10px;color:#c7d6e8;line-height:1.45;pointer-events:none}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:9px}
+.metric{background:#0a1728;border:1px solid var(--line);border-radius:10px;padding:9px;min-width:0}
+.metric span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.05em}
+.metric b{display:block;margin-top:4px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.section{padding:11px 12px;border-top:1px solid var(--line)}.section:first-child{border-top:0}
+.sectionTitle{font-weight:800;font-size:12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:7px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+button{min-height:40px;border-radius:9px;border:1px solid var(--line);background:#0a1729;color:var(--text);font-weight:750;padding:7px 9px}
+button:hover:not(:disabled){border-color:#3e699c;background:#10223b}
+button.primary{border-color:#287de6;background:linear-gradient(180deg,#419fff,#267ae5)}
+button.danger{border-color:#8e3d3d;background:linear-gradient(180deg,#a94a45,#7c302e)}
+button.warn{border-color:#826a2e;background:#332912}
+button.good{border-color:#2c7650;background:#123424}
+label{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}
+input[type="number"],select{width:100%;min-height:39px;background:#0a1729;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:7px}
+input[type="range"]{width:100%;accent-color:var(--cyan)}
+.toggleRow{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:#0a1729}
+.toggleRow input{width:18px;height:18px}.toggleRow span{font-size:11px}
+.notice{font-size:10px;line-height:1.5;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:8px;background:#0a1729}
+.deviceGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10px}
+.deviceGrid div{padding:7px;border-radius:8px;background:#0a1729;border:1px solid var(--line);min-width:0}
+.deviceGrid span{display:block;color:var(--muted);font-size:9px}.deviceGrid b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.joints{display:grid;gap:6px}
+.joint{display:grid;grid-template-columns:86px minmax(90px,1fr) 58px 58px;gap:7px;align-items:center;background:#0a1729;border:1px solid var(--line);border-radius:10px;padding:7px}
+.jointName{font-size:10px;font-weight:800;line-height:1.25}.jointName span{display:block;color:var(--muted);font-weight:500;font-size:9px}
+.val{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px;text-align:right}
+.val.actual{color:var(--green)}.val.target{color:var(--cyan)}
+.transport{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.log{height:135px;overflow:auto;background:#071321;border:1px solid var(--line);border-radius:9px;padding:7px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px;line-height:1.45;color:#a9bdd4}
+.log div{padding:2px 0;border-bottom:1px dashed rgba(80,110,145,.25)}
+.log .tx{color:#74caff}.log .rx{color:#77dfa6}.log .err{color:#ff8b83}.log .sys{color:#c5b3ff}
+.progress{height:5px;border-radius:999px;background:#17283e;overflow:hidden;margin-top:5px}.progress>i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));width:0%}
+.footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:9px 11px;border:1px solid var(--line);border-radius:14px;background:#0a1728;color:var(--muted);font-size:10px}
+dialog{border:1px solid var(--line);border-radius:15px;background:#0d192b;color:var(--text);max-width:620px;width:calc(100% - 24px);box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(0,0,0,.68)}
+@media(max-width:1180px){.layout{grid-template-columns:1fr}.stage,canvas{height:500px}}
+@media(max-width:700px){body{padding:7px}.topbar{position:static;align-items:flex-start;flex-direction:column}.statusLine{justify-content:flex-start}.stage,canvas{height:410px}.metrics{grid-template-columns:repeat(2,1fr)}.joint{grid-template-columns:76px minmax(70px,1fr) 48px 48px}.two,.three,.transport{grid-template-columns:1fr}.deviceGrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brandMark" aria-hidden="true"></div>
+      <div><h1>xArm 1S Digital Twin</h1><div class="subtitle">3D model + WebHID control + real servo position feedback</div></div>
+    </div>
+    <div class="statusLine">
+      <span class="badge"><span id="hidDot" class="dot"></span><span id="hidStatus">HID disconnected</span></span>
+      <span class="badge"><span id="feedbackDot" class="dot"></span><span id="feedbackStatus">Feedback off</span></span>
+      <span class="badge" id="modeBadge">SIMULATION</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <div class="cardHead">
+        <div><strong>Interactive 3D Twin</strong><div class="small">Orbit with mouse • scroll to zoom • actual positions drive the model in Live mode</div></div>
+        <div class="small">xArm 1S mapping: ID1 gripper → ID6 base</div>
+      </div>
+      <div class="stage">
+        <canvas id="armCanvas" aria-label="3D digital twin of the xArm 1S"></canvas>
+        <div class="hud">
+          <span class="badge">🔌 <span id="hudMode">Simulation</span></span>
+          <span class="badge">🔋 <span id="hudBattery">—</span></span>
+          <span class="badge">📡 <span id="hudPoll">Not polling</span></span>
+          <span class="badge">🛡️ <span id="hudSafety">Motion locked</span></span>
+        </div>
+        <div class="legend">BLUE = commanded target<br>GREEN = measured feedback<br>Software-safe limits are created from the arm's current pose.</div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span>Connection</span><b id="mConnection">Offline</b></div>
+        <div class="metric"><span>Last feedback</span><b id="mFeedback">—</b></div>
+        <div class="metric"><span>Battery</span><b id="mBattery">—</b></div>
+        <div class="metric"><span>Max deviation</span><b id="mDeviation">—</b></div>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="section">
+        <div class="sectionTitle"><span>1. Connect the physical arm</span><span class="small">WebHID</span></div>
+        <div class="two">
+          <button id="connectBtn" class="primary">Connect xArm HID</button>
+          <button id="connectAnyBtn">Choose any HID</button>
+        </div>
+        <div class="two" style="margin-top:7px">
+          <button id="readPoseBtn" disabled>Read current pose</button>
+          <button id="batteryBtn" disabled>Read battery</button>
+        </div>
+        <div class="deviceGrid" style="margin-top:7px">
+          <div><span>Product</span><b id="dProduct">—</b></div>
+          <div><span>VID : PID</span><b id="dIds">—</b></div>
+          <div><span>Output report</span><b id="dReport">—</b></div>
+          <div><span>Report bytes</span><b id="dBytes">—</b></div>
+        </div>
+        <div id="webhidNotice" class="notice" style="margin-top:7px">Use an HTTPS page (GitHub Pages is fine) in a WebHID-capable desktop browser. Connection permission must be granted by you.</div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle"><span>2. Establish a safe live pose</span><span class="small">No automatic movement</span></div>
+        <div class="two">
+          <button id="captureBtn" disabled>Capture pose as safe center</button>
+          <button id="syncTwinBtn" disabled>Sync 3D to measured pose</button>
+        </div>
+        <div class="toggleRow" style="margin-top:7px">
+          <input id="armMotion" type="checkbox" disabled>
+          <span><b>Enable physical motion</b><br><span class="small">Required before any servo command can be sent.</span></span>
+        </div>
+        <div id="safetyMsg" class="notice" style="margin-top:7px">First connect the arm and read its current pose. Keep hands and loose objects clear of the arm before enabling movement.</div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle"><span>3. Joint state and control</span><span class="small">0–1000 controller units</span></div>
+        <div class="joints" id="jointList"></div>
+        <div class="two" style="margin-top:8px">
+          <div><label for="duration">Move duration (ms)</label><input id="duration" type="number" min="300" max="5000" step="100" value="900"></div>
+          <div><label for="safeSpan">Safe span from captured pose</label><select id="safeSpan"><option value="60">±60</option><option value="100" selected>±100</option><option value="150">±150</option><option value="220">±220</option></select></div>
+        </div>
+        <div class="three" style="margin-top:7px">
+          <button id="moveAllBtn" class="primary" disabled>Move to targets</button>
+          <button id="copyActualBtn" disabled>Actual → targets</button>
+          <button id="servoOffBtn" class="danger" disabled>STOP / Torque off</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle"><span>4. Closed-loop feedback</span><span class="small">Digital twin cycle</span></div>
+        <div class="two">
+          <button id="startFeedbackBtn" class="good" disabled>Start feedback</button>
+          <button id="stopFeedbackBtn" disabled>Stop feedback</button>
+        </div>
+        <div class="two" style="margin-top:7px">
+          <div><label for="pollMs">Poll interval</label><select id="pollMs"><option value="650">650 ms</option><option value="800" selected>800 ms</option><option value="1000">1000 ms</option><option value="1500">1500 ms</option></select></div>
+          <div><label for="viewMode">3D follows</label><select id="viewMode"><option value="actual" selected>Measured position</option><option value="target">Target position</option></select></div>
+        </div>
+        <div class="notice" style="margin-top:7px"><b>Closed loop:</b> HTML target → HID command → physical servo movement → HID position request → measured position → 3D model update.</div>
+      </div>
+
+      <div class="section">
+        <div class="sectionTitle"><span>5. HID transport diagnostics</span><span class="small">Use only if connection works but commands do not</span></div>
+        <div class="transport">
+          <div><label for="reportId">Output report ID</label><select id="reportId"><option value="0">0 (default)</option></select></div>
+          <div><label for="padLength">Pad output report</label><select id="padLength"><option value="auto" selected>Auto from descriptor</option><option value="0">Do not pad</option><option value="64">64 bytes</option></select></div>
+        </div>
+        <div class="two" style="margin-top:7px">
+          <button id="testReadBtn" disabled>Send read-only test</button>
+          <button id="clearLogBtn">Clear log</button>
+        </div>
+        <div id="rawLog" class="log" style="margin-top:7px"></div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="footer">
+    <span>Protocol mode: xArm controller packets <b>55 55 …</b> over USB HID</span>
+    <span id="secureState">Checking WebHID…</span>
+  </div>
+</div>
+
+<dialog id="confirmMotionDialog">
+  <h3 style="margin-top:0">Enable physical movement?</h3>
+  <p style="font-size:13px;line-height:1.55;color:#b9c9dc">The browser will be allowed to send movement commands to the real robotic arm. Make sure the xArm is stable on the table, the workspace is clear, and your captured safe limits are appropriate.</p>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button id="cancelMotion">Cancel</button>
+    <button id="confirmMotion" class="primary">Enable movement</button>
+  </div>
+</dialog>
+
+<script type="module">
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const hex=n=>'0x'+Number(n).toString(16).toUpperCase().padStart(4,'0');
+const byteHex=a=>[...a].map(v=>v.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+
+const XARM_VENDOR=0x0483;
+const XARM_PRODUCT=0x5750;
+const CMD={MOVE:0x03,BATTERY:0x0F,SERVO_OFF:0x14,POS_READ:0x15};
+
+const joints=[
+  {id:1,name:'Gripper',short:'Grip',axis:'grip',invert:false},
+  {id:2,name:'Wrist rotate',short:'Wrist R',axis:'wristRoll',invert:false},
+  {id:3,name:'Wrist pitch',short:'Wrist P',axis:'wristPitch',invert:true},
+  {id:4,name:'Elbow',short:'Elbow',axis:'elbow',invert:true},
+  {id:5,name:'Shoulder',short:'Shoulder',axis:'shoulder',invert:false},
+  {id:6,name:'Base rotate',short:'Base',axis:'base',invert:false}
+];
+const state={
+  mode:'simulation',device:null,outputReportId:0,outputBytes:0,
+  actual:[500,500,500,500,500,500],target:[500,500,500,500,500,500],
+  safeCenter:null,safeMin:[0,0,0,0,0,0],safeMax:[1000,1000,1000,1000,1000,1000],
+  motionEnabled:false,feedbackTimer:null,lastFeedback:null,battery:null,pendingRead:false
+};
+
+function log(kind,msg){
+  const d=document.createElement('div');d.className=kind;
+  const t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  d.textContent=t+'  '+msg;$('#rawLog').prepend(d);while($('#rawLog').children.length>60)$('#rawLog').lastChild.remove();
+}
+function setConnectionUI(){
+  const live=!!state.device?.opened;
+  $('#hidDot').className='dot '+(live?'green':'');
+  $('#hidStatus').textContent=live?'HID connected':'HID disconnected';
+  $('#modeBadge').textContent=live?'LIVE HID':'SIMULATION';
+  $('#hudMode').textContent=live?'Live HID':'Simulation';
+  $('#mConnection').textContent=live?'Connected':'Offline';
+  ['readPoseBtn','batteryBtn','testReadBtn','servoOffBtn'].forEach(id=>$('#'+id).disabled=!live);
+  $('#captureBtn').disabled=!live||!state.lastFeedback;
+  $('#syncTwinBtn').disabled=!live||!state.lastFeedback;
+  $('#armMotion').disabled=!live||!state.safeCenter;
+  $('#startFeedbackBtn').disabled=!live;
+  $('#stopFeedbackBtn').disabled=!live;
+  refreshMoveState();
+}
+function refreshMoveState(){
+  const canMove=!!state.device?.opened && state.motionEnabled && !!state.safeCenter;
+  $('#moveAllBtn').disabled=!canMove;
+  $('#copyActualBtn').disabled=!state.lastFeedback;
+  $('#hudSafety').textContent=canMove?'Motion enabled':'Motion locked';
+}
+function updateMetrics(){
+  $('#hudBattery').textContent=state.battery?state.battery.toFixed(2)+' V':'—';
+  $('#mBattery').textContent=state.battery?state.battery.toFixed(2)+' V':'—';
+  $('#mFeedback').textContent=state.lastFeedback?new Date(state.lastFeedback).toLocaleTimeString():'—';
+  if(state.lastFeedback){
+    const dev=Math.max(...state.actual.map((v,i)=>Math.abs(v-state.target[i])));
+    $('#mDeviation').textContent=dev+' units';
+  }else $('#mDeviation').textContent='—';
+  $('#hudPoll').textContent=state.feedbackTimer?$('#pollMs').value+' ms':'Not polling';
+}
+function renderJointRows(){
+  const host=$('#jointList');host.innerHTML='';
+  joints.forEach((j,i)=>{
+    const row=document.createElement('div');row.className='joint';row.innerHTML=`
+      <div class="jointName">ID${j.id} · ${j.short}<span>${j.name}</span></div>
+      <input aria-label="${j.name} target" data-range="${i}" type="range" min="0" max="1000" value="${state.target[i]}">
+      <div class="val target" id="t${i}">${state.target[i]}</div>
+      <div class="val actual" id="a${i}">${state.actual[i]}</div>`;
+    host.appendChild(row);
+  });
+  $$('[data-range]').forEach(el=>el.addEventListener('input',e=>{
+    const i=Number(e.target.dataset.range);
+    let v=Number(e.target.value);
+    if(state.safeCenter)v=clamp(v,state.safeMin[i],state.safeMax[i]);
+    state.target[i]=v;e.target.value=v;$('#t'+i).textContent=v;
+    if($('#viewMode').value==='target')updateArm3D();
+  }));
+}
+function updateJointUI(){
+  joints.forEach((j,i)=>{
+    const r=$(`[data-range="${i}"]`);
+    if(r){r.value=state.target[i];r.min=state.safeCenter?state.safeMin[i]:0;r.max=state.safeCenter?state.safeMax[i]:1000}
+    $('#t'+i).textContent=Math.round(state.target[i]);
+    $('#a'+i).textContent=Math.round(state.actual[i]);
+  });
+  updateMetrics();
+  updateArm3D();
+}
+function captureSafeCenter(){
+  state.safeCenter=[...state.actual];state.target=[...state.actual];
+  const span=Number($('#safeSpan').value);
+  state.safeMin=state.safeCenter.map(v=>clamp(v-span,0,1000));
+  state.safeMax=state.safeCenter.map(v=>clamp(v+span,0,1000));
+  $('#armMotion').disabled=false;
+  $('#safetyMsg').innerHTML='<b>Safe center captured.</b> Current software limits are ±'+span+' controller units around each measured joint position. You can change the span before recapturing.';
+  log('sys','Safe center captured: '+state.safeCenter.join(', '));
+  updateJointUI();refreshMoveState();
+}
+function resetMotionLock(){
+  state.motionEnabled=false;$('#armMotion').checked=false;refreshMoveState();
+}
+
+// ---------------- HID transport ----------------
+function collectReports(device){
+  const out=[];
+  function walk(c){
+    for(const r of (c.outputReports||[])){
+      let bits=0;
+      for(const item of (r.items||[])) bits+=Number(item.reportSize||0)*Number(item.reportCount||0);
+      out.push({id:Number(r.reportId||0),bytes:Math.ceil(bits/8)});
+    }
+    for(const child of (c.children||[])) walk(child);
+  }
+  for(const c of (device.collections||[]))walk(c);
+  return out;
+}
+function configureReportUI(){
+  const reports=collectReports(state.device);
+  const sel=$('#reportId');sel.innerHTML='';
+  if(!reports.length){
+    const o=document.createElement('option');o.value='0';o.textContent='0 (no explicit report ID found)';sel.appendChild(o);
+    state.outputReportId=0;state.outputBytes=0;
+  }else{
+    const unique=new Map(reports.map(r=>[r.id,r]));
+    [...unique.values()].forEach(r=>{const o=document.createElement('option');o.value=String(r.id);o.textContent=r.id+' ('+(r.bytes||'?')+' bytes)';sel.appendChild(o)});
+    const preferred=[...unique.values()][0];state.outputReportId=preferred.id;state.outputBytes=preferred.bytes||0;sel.value=String(preferred.id);
+  }
+  $('#dReport').textContent=String(state.outputReportId);
+  $('#dBytes').textContent=state.outputBytes?String(state.outputBytes):'unknown';
+}
+async function connectHID(filters){
+  if(!('hid' in navigator)){log('err','WebHID is unavailable in this browser/context.');return}
+  try{
+    const devices=await navigator.hid.requestDevice({filters});
+    if(!devices.length)return;
+    const dev=devices[0];
+    if(!dev.opened)await dev.open();
+    if(state.device && state.device!==dev){try{state.device.removeEventListener('inputreport',onInputReport)}catch{}}
+    state.device=dev;state.mode='live';dev.addEventListener('inputreport',onInputReport);
+    configureReportUI();
+    $('#dProduct').textContent=dev.productName||'Unnamed HID';
+    $('#dIds').textContent=hex(dev.vendorId)+' : '+hex(dev.productId);
+    log('sys','Connected: '+(dev.productName||'HID')+' VID='+hex(dev.vendorId)+' PID='+hex(dev.productId));
+    $('#webhidNotice').innerHTML='<b style="color:#77dfa6">Connected.</b> The xArm HID interface is open. Next click <b>Read current pose</b>.';
+    setConnectionUI();
+  }catch(e){
+    log('err','Connect failed: '+e.message);
+    $('#webhidNotice').innerHTML='<b style="color:#ff8b83">Connection failed:</b> '+e.message+'<br>Close any Hiwonder/robot-control software that may already be using the USB device, then reconnect.';
+  }
+}
+async function reconnectGrantedDevice(){
+  if(!('hid' in navigator))return;
+  try{
+    const granted=await navigator.hid.getDevices();
+    const dev=granted.find(d=>d.vendorId===XARM_VENDOR && d.productId===XARM_PRODUCT);
+    if(!dev)return;
+    if(!dev.opened)await dev.open();
+    state.device=dev;state.mode='live';dev.addEventListener('inputreport',onInputReport);
+    configureReportUI();
+    $('#dProduct').textContent=dev.productName||'Hiwonder xArm';
+    $('#dIds').textContent=hex(dev.vendorId)+' : '+hex(dev.productId);
+    $('#webhidNotice').innerHTML='<b style="color:#77dfa6">Previously authorized xArm reconnected automatically.</b> Click <b>Read current pose</b>.';
+    setConnectionUI();
+    log('sys','Reconnected previously authorized xArm HID.');
+  }catch(e){log('err','Auto-reconnect failed: '+e.message)}
+}
+function selectedPadLength(){
+  const v=$('#padLength').value;
+  if(v==='0')return 0;if(v==='64')return 64;
+  return state.outputBytes||0;
+}
+async function sendPacket(bytes,label='packet'){
+  if(!state.device?.opened)throw new Error('HID device is not open.');
+  const reportId=Number($('#reportId').value||0);
+  let payload=new Uint8Array(bytes);
+  const pad=selectedPadLength();
+  if(pad>0 && payload.length<pad){const p=new Uint8Array(pad);p.set(payload);payload=p}
+  log('tx','TX '+label+' [RID '+reportId+'] '+byteHex(payload.slice(0,Math.min(payload.length,36)))+(payload.length>36?' …':''));
+  try{
+    await state.device.sendReport(reportId,payload);
+  }catch(e){
+    // A useful fallback for devices whose descriptor rejects padded reports.
+    if(pad>0){
+      log('sys','Padded send failed; retrying unpadded once.');
+      await state.device.sendReport(reportId,new Uint8Array(bytes));
+    }else throw e;
+  }
+}
+function packet(cmd,params=[]){return [0x55,0x55,params.length+2,cmd,...params]}
+async function requestPositions(){
+  state.pendingRead=true;
+  await sendPacket(packet(CMD.POS_READ,[6,1,2,3,4,5,6]),'READ POSITIONS');
+}
+async function requestBattery(){await sendPacket(packet(CMD.BATTERY,[]),'READ BATTERY')}
+async function torqueOff(){
+  stopFeedback();
+  await sendPacket(packet(CMD.SERVO_OFF,[6,1,2,3,4,5,6]),'TORQUE OFF');
+  resetMotionLock();log('sys','Torque-off command sent. Physical servos should now be unloaded.');
+}
+async function moveAll(){
+  if(!state.motionEnabled||!state.safeCenter)throw new Error('Physical movement is locked.');
+  const duration=clamp(Number($('#duration').value)||900,300,5000);
+  const params=[6,duration&0xff,(duration>>8)&0xff];
+  for(let i=0;i<6;i++){
+    const v=Math.round(clamp(state.target[i],state.safeMin[i],state.safeMax[i]));
+    params.push(i+1,v&0xff,(v>>8)&0xff);
+  }
+  await sendPacket(packet(CMD.MOVE,params),'MOVE ALL');
+  setTimeout(()=>requestPositions().catch(e=>log('err',e.message)),Math.min(duration+180,1800));
+}
+function scanForPacket(data){
+  const a=[...data];
+  for(let i=0;i<a.length-3;i++)if(a[i]===0x55&&a[i+1]===0x55)return a.slice(i);
+  return a;
+}
+function onInputReport(event){
+  const raw=new Uint8Array(event.data.buffer,event.data.byteOffset,event.data.byteLength);
+  const p=scanForPacket(raw);
+  log('rx','RX [RID '+event.reportId+'] '+byteHex(p.slice(0,Math.min(p.length,40))));
+  if(p.length<4)return;
+  const cmd=p[3];
+  if(cmd===CMD.POS_READ && p.length>=5){
+    const count=p[4];
+    const next=[...state.actual];
+    for(let i=0;i<count;i++){
+      const base=5+i*3;if(base+2>=p.length)break;
+      const id=p[base],pos=p[base+1]|(p[base+2]<<8);
+      if(id>=1&&id<=6)next[id-1]=pos;
+    }
+    state.actual=next;state.lastFeedback=Date.now();state.pendingRead=false;
+    $('#captureBtn').disabled=false;$('#syncTwinBtn').disabled=false;$('#copyActualBtn').disabled=false;
+    updateJointUI();
+  }else if(cmd===CMD.BATTERY && p.length>=6){
+    const mv=p[4]|(p[5]<<8);state.battery=mv/1000;updateMetrics();
+  }
+}
+function startFeedback(){
+  if(state.feedbackTimer)clearInterval(state.feedbackTimer);
+  const ms=Number($('#pollMs').value);
+  state.feedbackTimer=setInterval(()=>{if(!state.pendingRead)requestPositions().catch(e=>log('err','Feedback: '+e.message))},ms);
+  $('#feedbackDot').className='dot green';$('#feedbackStatus').textContent='Feedback running';
+  requestPositions().catch(e=>log('err',e.message));updateMetrics();
+}
+function stopFeedback(){
+  if(state.feedbackTimer){clearInterval(state.feedbackTimer);state.feedbackTimer=null}
+  $('#feedbackDot').className='dot';$('#feedbackStatus').textContent='Feedback off';$('#hudPoll').textContent='Not polling';
+}
+if('hid' in navigator){
+  navigator.hid.addEventListener('disconnect',({device})=>{
+    if(state.device===device){stopFeedback();resetMotionLock();state.device=null;state.safeCenter=null;setConnectionUI();log('err','HID device disconnected.')}
+  });
+}
+
+// ---------------- 3D arm ----------------
+let THREE,renderer,scene,camera,controls;
+let model={};
+function servoAngle(i,pos){
+  // Approximate visual mapping only. xArm controller values span 0–1000.
+  const deg=(pos-500)*0.24;
+  return deg*Math.PI/180*(joints[i].invert?-1:1);
+}
+function updateArm3D(){
+  if(!model.base)return;
+  const src=$('#viewMode').value==='target'?state.target:state.actual;
+  model.base.rotation.y=servoAngle(5,src[5]);
+  model.shoulder.rotation.z=servoAngle(4,src[4]);
+  model.elbow.rotation.z=servoAngle(3,src[3]);
+  model.wristPitch.rotation.z=servoAngle(2,src[2]);
+  model.wristRoll.rotation.y=servoAngle(1,src[1]);
+  const grip=clamp((src[0]-200)/600,0,1);
+  if(model.fingerL)model.fingerL.position.x=-0.12-grip*0.18;
+  if(model.fingerR)model.fingerR.position.x=0.12+grip*0.18;
+}
+async function init3D(){
+  THREE=await import('https://cdn.jsdelivr.net/npm/three@0.181.1/build/three.module.js');
+  const canvas=$('#armCanvas');
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x0a1422);
+  camera=new THREE.PerspectiveCamera(42,canvas.clientWidth/570,.1,100);camera.position.set(7.2,5.8,8.2);
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(canvas.clientWidth,570,false);renderer.shadowMap.enabled=true;
+  // Lightweight orbit controls implemented locally so the 3D twin does not depend on a second CDN module.
+  const orbit={radius:11.3,theta:0.72,phi:1.03,target:new THREE.Vector3(0,2.2,0),drag:false,x:0,y:0};
+  function placeCamera(){
+    const sp=Math.sin(orbit.phi);
+    camera.position.set(orbit.target.x+orbit.radius*sp*Math.sin(orbit.theta),orbit.target.y+orbit.radius*Math.cos(orbit.phi),orbit.target.z+orbit.radius*sp*Math.cos(orbit.theta));
+    camera.lookAt(orbit.target);
+  }
+  placeCamera();
+  canvas.addEventListener('pointerdown',e=>{orbit.drag=true;orbit.x=e.clientX;orbit.y=e.clientY;canvas.setPointerCapture(e.pointerId)});
+  canvas.addEventListener('pointermove',e=>{if(!orbit.drag)return;const dx=e.clientX-orbit.x,dy=e.clientY-orbit.y;orbit.x=e.clientX;orbit.y=e.clientY;orbit.theta-=dx*.008;orbit.phi=clamp(orbit.phi+dy*.008,.28,2.7);placeCamera()});
+  canvas.addEventListener('pointerup',e=>{orbit.drag=false;try{canvas.releasePointerCapture(e.pointerId)}catch{}});
+  canvas.addEventListener('pointercancel',()=>orbit.drag=false);
+  canvas.addEventListener('wheel',e=>{e.preventDefault();orbit.radius=clamp(orbit.radius*(1+Math.sign(e.deltaY)*.08),5,16);placeCamera()},{passive:false});
+  scene.add(new THREE.HemisphereLight(0xb9dcff,0x172133,1.5));
+  const key=new THREE.DirectionalLight(0xffffff,2.1);key.position.set(4,8,5);key.castShadow=true;scene.add(key);
+  const fill=new THREE.PointLight(0x45d8ff,1.0,15);fill.position.set(-4,4,2);scene.add(fill);
+  const floor=new THREE.Mesh(new THREE.CylinderGeometry(4.5,4.5,.16,64),new THREE.MeshStandardMaterial({color:0x111e30,roughness:.85,metalness:.05}));floor.position.y=-.14;floor.receiveShadow=true;scene.add(floor);
+  const grid=new THREE.GridHelper(8,16,0x28476d,0x17314f);grid.position.y=-.04;scene.add(grid);
+  const metal=new THREE.MeshStandardMaterial({color:0x9ba8b6,roughness:.33,metalness:.7});
+  const dark=new THREE.MeshStandardMaterial({color:0x172233,roughness:.52,metalness:.35});
+  const blue=new THREE.MeshStandardMaterial({color:0x226aa6,roughness:.36,metalness:.55});
+  const servoMat=new THREE.MeshStandardMaterial({color:0x111923,roughness:.4,metalness:.45});
+  function box(w,h,d,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.castShadow=m.receiveShadow=true;return m}
+  function cyl(r,h,mat,rot=0){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,32),mat);m.rotation.z=rot;m.castShadow=m.receiveShadow=true;return m}
+  const root=new THREE.Group();scene.add(root);
+  // Base
+  const baseDisk=new THREE.Mesh(new THREE.CylinderGeometry(.82,.9,.28,48),dark);baseDisk.position.y=.14;baseDisk.castShadow=true;root.add(baseDisk);
+  const controller=box(1.45,.34,1.25,blue);controller.position.y=.43;root.add(controller);
+  model.base=new THREE.Group();model.base.position.y=.58;root.add(model.base);
+  const baseServo=box(.72,.55,.72,servoMat);baseServo.position.y=.28;model.base.add(baseServo);
+  // Shoulder pivot + upper arm
+  model.shoulder=new THREE.Group();model.shoulder.position.set(0,.62,0);model.base.add(model.shoulder);
+  const shServo=cyl(.35,.82,servoMat,Math.PI/2);model.shoulder.add(shServo);
+  const upper=box(.32,1.75,.34,metal);upper.position.set(0,.9,0);model.shoulder.add(upper);
+  const side1=box(.12,1.72,.52,blue);side1.position.set(-.28,.9,0);model.shoulder.add(side1);
+  const side2=side1.clone();side2.position.x=.28;model.shoulder.add(side2);
+  // Elbow
+  model.elbow=new THREE.Group();model.elbow.position.set(0,1.78,0);model.shoulder.add(model.elbow);
+  const elServo=cyl(.31,.72,servoMat,Math.PI/2);model.elbow.add(elServo);
+  const fore=box(.3,1.52,.3,metal);fore.position.y=.78;model.elbow.add(fore);
+  const fside1=box(.11,1.48,.47,blue);fside1.position.set(-.25,.78,0);model.elbow.add(fside1);
+  const fside2=fside1.clone();fside2.position.x=.25;model.elbow.add(fside2);
+  // Wrist pitch
+  model.wristPitch=new THREE.Group();model.wristPitch.position.set(0,1.55,0);model.elbow.add(model.wristPitch);
+  const wpServo=cyl(.27,.64,servoMat,Math.PI/2);model.wristPitch.add(wpServo);
+  const wristLink=box(.34,.72,.34,metal);wristLink.position.y=.38;model.wristPitch.add(wristLink);
+  // Wrist roll
+  model.wristRoll=new THREE.Group();model.wristRoll.position.set(0,.78,0);model.wristPitch.add(model.wristRoll);
+  const wrServo=new THREE.Mesh(new THREE.CylinderGeometry(.27,.27,.55,32),servoMat);wrServo.position.y=.26;wrServo.castShadow=true;model.wristRoll.add(wrServo);
+  // Gripper body
+  const gripBody=box(.58,.25,.5,blue);gripBody.position.y=.68;model.wristRoll.add(gripBody);
+  model.fingerL=box(.12,.68,.16,metal);model.fingerL.position.set(-.18,1.08,0);model.wristRoll.add(model.fingerL);
+  model.fingerR=box(.12,.68,.16,metal);model.fingerR.position.set(.18,1.08,0);model.wristRoll.add(model.fingerR);
+  const tipL=box(.22,.12,.2,metal);tipL.position.set(.05,.3,0);model.fingerL.add(tipL);
+  const tipR=box(.22,.12,.2,metal);tipR.position.set(-.05,.3,0);model.fingerR.add(tipR);
+  // Joint halos
+  const haloMat=new THREE.MeshBasicMaterial({color:0x45d8ff,transparent:true,opacity:.32,side:THREE.DoubleSide});
+  [model.shoulder,model.elbow,model.wristPitch].forEach(g=>{const ring=new THREE.Mesh(new THREE.RingGeometry(.38,.42,48),haloMat);ring.rotation.y=Math.PI/2;g.add(ring)});
+  updateArm3D();
+  function animate(){renderer.render(scene,camera);requestAnimationFrame(animate)}animate();
+  const ro=new ResizeObserver(()=>{const h=window.innerWidth<1180?500:570,w=canvas.clientWidth;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)});ro.observe(canvas);
+}
+
+// ---------------- events ----------------
+$('#connectBtn').addEventListener('click',()=>connectHID([{vendorId:XARM_VENDOR,productId:XARM_PRODUCT}]));
+$('#connectAnyBtn').addEventListener('click',()=>connectHID([]));
+$('#readPoseBtn').addEventListener('click',()=>requestPositions().catch(e=>log('err',e.message)));
+$('#batteryBtn').addEventListener('click',()=>requestBattery().catch(e=>log('err',e.message)));
+$('#testReadBtn').addEventListener('click',()=>requestPositions().catch(e=>log('err',e.message)));
+$('#captureBtn').addEventListener('click',captureSafeCenter);
+$('#syncTwinBtn').addEventListener('click',()=>{state.target=[...state.actual];updateJointUI();log('sys','3D twin synchronized to measured pose.')});
+$('#copyActualBtn').addEventListener('click',()=>{state.target=[...state.actual];updateJointUI()});
+$('#safeSpan').addEventListener('change',()=>{if(state.safeCenter)captureSafeCenter()});
+$('#moveAllBtn').addEventListener('click',()=>moveAll().catch(e=>log('err',e.message)));
+$('#servoOffBtn').addEventListener('click',()=>torqueOff().catch(e=>log('err',e.message)));
+$('#startFeedbackBtn').addEventListener('click',startFeedback);
+$('#stopFeedbackBtn').addEventListener('click',stopFeedback);
+$('#pollMs').addEventListener('change',()=>{if(state.feedbackTimer)startFeedback()});
+$('#viewMode').addEventListener('change',updateArm3D);
+$('#reportId').addEventListener('change',()=>{state.outputReportId=Number($('#reportId').value);$('#dReport').textContent=$('#reportId').value});
+$('#clearLogBtn').addEventListener('click',()=>$('#rawLog').innerHTML='');
+
+const dlg=$('#confirmMotionDialog');
+$('#armMotion').addEventListener('change',e=>{
+  if(e.target.checked){e.target.checked=false;dlg.showModal()}
+  else{state.motionEnabled=false;refreshMoveState();log('sys','Physical movement locked.')}
+});
+$('#cancelMotion').addEventListener('click',()=>{dlg.close();$('#armMotion').checked=false;state.motionEnabled=false;refreshMoveState()});
+$('#confirmMotion').addEventListener('click',()=>{dlg.close();$('#armMotion').checked=true;state.motionEnabled=true;refreshMoveState();log('sys','Physical movement ENABLED within captured software limits.')});
+
+renderJointRows();setConnectionUI();updateMetrics();
+if(!window.isSecureContext){$('#secureState').textContent='Not a secure context — publish via HTTPS';$('#webhidNotice').innerHTML='<b>WebHID requires a secure context.</b> Publish this page through HTTPS (for example GitHub Pages) before connecting the arm.'}
+else if(!('hid' in navigator)){$('#secureState').textContent='WebHID unavailable in this browser';$('#webhidNotice').innerHTML='<b>WebHID is not available here.</b> Open the HTTPS page in a desktop browser that supports WebHID.'}
+else{$('#secureState').textContent='Secure context + WebHID available';log('sys','WebHID available. Connect is intentionally user-initiated.')}
+
+init3D().then(()=>log('sys','3D twin initialized successfully.')).catch(e=>{log('err','3D engine failed: '+e.message);$('#webhidNotice').innerHTML='<b style="color:#ff8b83">3D engine failed:</b> '+e.message+'<br>The HID controls are separate from the 3D renderer.';console.error(e)});
+reconnectGrantedDevice();
+</script>
+</body>
+</html>
